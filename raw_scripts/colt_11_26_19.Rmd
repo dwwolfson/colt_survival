@@ -1,0 +1,75 @@
+---
+title: "Colt Survival"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/bills/Desktop/MS Colt Survival")
+library(KMsurv)
+library(survival)
+library(gtools)
+colt.dat<-read.csv("fates_table.csv")
+
+#GLM 
+###################JAGS################
+#install.packages('Epi')
+#install.packages('coda')
+#install.packages('R2jags')
+#install.packages("splines")
+#install.packages("arm")
+#install.packages
+source("http://www.math.ntnu.no/inla/givemeINLA.R")
+library(rjags)
+library(Epi)
+library(coda)
+library(R2jags)
+library(splines)
+library(arm)
+library(boot)
+```
+
+##Creat Lexis diagram
+
+```{r}
+Colt.Lexis<-read.csv("fates_table.csv", header=TRUE)
+spl.dat<-Lexis(entry=list(age=Cap.age.days),exit=list(age=age_at_fate_days),exit.status = censor, data=Colt.Lexis)
+plot(spl.dat)
+age.days<-seq(0,365,1)
+dayobs<-splitLexis(spl.dat,breaks=age.days,time.scale="age")
+dayobs$Fail<-factor(dayobs$lex.Xst)
+write.csv(dayobs,file = "dayobs.csv",row.names=TRUE)
+```
+###glm
+```{r}
+options(na.action = "na.fail")
+m.age <- glm(Fail ~ ns(age),family = binomial(link=cloglog), data=dayobs)
+pred.m.age<-1 - predict(m.age, type = "resp",data.frame(age = seq(0, 365, 1)))
+St.m.age <- c(1, cumprod(pred.m.age))
+
+par(mar=c(5,6,4,1)+0.1)
+plot(St.m.age, type="l",lwd=2,ylim=c(0,1),xlab="Age (days)",ylab=expression(hat(italic(S)))) #italics S-hat
+```
+################BOOTSTRAP 95% CIs################################################
+```{r}
+nsims = 500
+dayobs$Fail<-factor(dayobs$lex.Xst)
+predictions <- matrix(NA, nrow = 367, ncol = nsims) 
+uid <- unique(dayobs$colt_ID) 
+nID <- length(uid) 
+for(ii in 1:nsims){
+  bootIDs <- data.frame(colt_ID = sample(x = uid, size = nID, replace = TRUE))
+  bootDat <- merge(bootIDs, dayobs)
+  dailyS <- glm(Fail ~ ns(age),family = binomial(link=cloglog), data=bootDat)
+  dailySP <- 1 - predict(dailyS, type = "resp",data.frame(age = seq(0, 365, 1)))
+  cum.boot <- c(1, cumprod(dailySP))
+  predictions[,ii]<-cum.boot
+}  
+CIs<-apply(as.matrix(predictions), 1, function(x){quantile(x,probs=c(0.025,0.975))})
+plot(St.m.age, type="l",lwd=2,ylim=c(0,1),xlab="Age (days)",ylab=expression(hat(italic(S)))) #italics S-hat
+lines(CIs[1,], lty=3)
+lines(CIs[2,], lty=3)
+colt <- survfit(Surv(age_at_fate_days, censor) ~ 1, data=colt.dat)
+lines(colt, col="red", xlim = c(0, 280))
+```
+
