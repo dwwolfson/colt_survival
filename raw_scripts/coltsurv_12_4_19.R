@@ -1,8 +1,8 @@
-setwd("C:/Users/bills/Desktop/MS Colt Survival")
+
 library(KMsurv)
 library(survival)
 library(gtools)
-colt.dat<-read.csv("fates_table.csv")
+colt.dat<-read.csv("raw_data/fates_table.csv")
 
 ########glm conditional on survival to 2.75 weeks
 #GLM 
@@ -22,7 +22,7 @@ library(splines)
 library(arm)
 library(boot)
 #Create Lexis diagram
-Colt.Lexis<-read.csv("fates_table.csv", header=TRUE)
+Colt.Lexis<-read.csv("raw_data/fates_table.csv", header=TRUE)
 spl.dat<-Lexis(entry=list(age=Cap.age.days),exit=list(age=age_at_fate_days),exit.status = censor, data=Colt.Lexis)
 plot(spl.dat)
 age.days<-seq(0,365,1)
@@ -31,8 +31,14 @@ dayobs$Fail<-factor(dayobs$lex.Xst)
 write.csv(dayobs,file = "dayobs.csv",row.names=TRUE)
 options(na.action = "na.fail")
 
-m.age <- glm(Fail ~ ns(age, df=3), family = binomial(link=cloglog), data=dayobs)
-pred.m.age<-1 - predict(m.age, type = "resp",data.frame(age = seq(round(7*2.7), 365, 1))) # start predicting at 2.7 weeks (or, min left truncation time)
+m1.age <- glm(Fail ~ ns(age, df=1), family = binomial(link=cloglog), data=dayobs)
+m2.age <- glm(Fail ~ ns(age, df=2), family = binomial(link=cloglog), data=dayobs)
+m3.age <- glm(Fail ~ ns(age, df=3), family = binomial(link=cloglog), data=dayobs)
+m4.age <- glm(Fail ~ ns(age, df=4), family = binomial(link=cloglog), data=dayobs)
+m5.age <- glm(Fail ~ ns(age, df=5), family = binomial(link=cloglog), data=dayobs)
+AIC(m1.age,m2.age,m3.age,m4.age,m5.age)
+
+pred.m.age<-1 - predict(m1.age, type = "resp",data.frame(age = seq(round(7*2.7), 365, 1))) # start predicting at 2.7 weeks (or, min left truncation time)
 St.m.age <- c(1, cumprod(pred.m.age))
 #m.age <- glm(Fail ~ ns(age),family = binomial(link=cloglog), data=dayobs)
 #pred.m.age<-1 - predict(m.age, type = "resp",data.frame(age = seq(0, 365, 1)))
@@ -88,7 +94,7 @@ h.df<-data.frame(est=fit1$est.grid, h.orig=fit1$haz.est)
 
 for (i in 1:10000){
   d.s.fixedKM<-colt.dat[sample(1:nrow(colt.dat), nrow(colt.dat), replace = T),]
-  d.s.muhaz<-muhaz(d.s.fixedKM$age_at_fate_days, d.s.fixedKM$censor, min.time=0, max.time=208, bw.method="knn")
+  d.s.muhaz<-muhaz(d.s.fixedKM$age_at_fate_days, d.s.fixedKM$censor, min.time=0, max.time=800, bw.method="knn")
   h.df<-cbind(h.df, d.s.muhaz$haz.est)
 }
 
