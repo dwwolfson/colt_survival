@@ -28,7 +28,7 @@ plot(spl.dat)
 age.days<-seq(0,365,1)
 dayobs<-splitLexis(spl.dat,breaks=age.days,time.scale="age")
 dayobs$Fail<-factor(dayobs$lex.Xst)
-write.csv(dayobs,file = "dayobs.csv",row.names=TRUE)
+write.csv(dayobs,file = "data_product/dayobs.csv",row.names=TRUE)
 options(na.action = "na.fail")
 
 m1.age <- glm(Fail ~ ns(age, df=1), family = binomial(link=cloglog), data=dayobs)
@@ -101,7 +101,7 @@ for (i in 1:10000){
 
 h.df$upper.ci<-apply(h.df[,c(-1,-2)], 1,  FUN=function(x) quantile(x, probs = 0.975))
 h.df$lower.ci<-apply(h.df[,c(-1,-2)], 1,  FUN=function(x) quantile(x, probs = 0.025))
-plot(h.df$est, h.df$h.orig, type="l", ylim=c(0,0.05), lwd=3, 
-     xlab= "Calf age (days)", ylab = "Hazard")
+plot(h.df$est, h.df$h.orig, type="l", xlim=c(19,200),ylim=c(0,0.015), lwd=3, 
+     xlab= "Age (days)", ylab = "Hazard")
 lines(h.df$est, h.df$upper.ci,  lty=3, lwd=3)
 lines(h.df$est, h.df$lower.ci,  lty=3, lwd=3)
