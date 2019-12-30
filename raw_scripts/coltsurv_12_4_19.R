@@ -1,4 +1,3 @@
-
 library(KMsurv)
 library(survival)
 library(gtools)
@@ -6,18 +5,8 @@ colt.dat<-read.csv("raw_data/fates_table.csv")
 
 ########glm conditional on survival to 2.75 weeks
 #GLM 
-###################JAGS################
-#install.packages('Epi')
-#install.packages('coda')
-#install.packages('R2jags')
-#install.packages("splines")
-#install.packages("arm")
-#install.packages
-source("http://www.math.ntnu.no/inla/givemeINLA.R")
-library(rjags)
 library(Epi)
 library(coda)
-library(R2jags)
 library(splines)
 library(arm)
 library(boot)
@@ -68,15 +57,61 @@ lines(CIs[2,], lty=3)
 colt <- survfit(Surv(cond.age, censor) ~ 1, data=colt.dat)
 lines(colt, col="red", xlim = c(0, 280))
 
+##NOT WORKING##########
+################BOOTSTRAP 95% CIs for conditional daily mort################################################
+set.seed(5)
+nsims = 10000
+dayobs$Fail<-factor(dayobs$lex.Xst)
+predictions.m <- matrix(NA, nrow = 348, ncol = nsims) #matrix for estimates
+uid.m <- unique(dayobs$colt_ID)
+nID.m <- length(uid.m)
+for(iii in 1:nsims){
+  bootIDs.m <- data.frame(colt_ID = sample(x = uid.m, size = nID.m, replace = TRUE))
+  bootDat.m <- merge(bootIDs.m, dayobs)
+  table(bootDat.m$colt_ID)
+  length(dayobs$colt_ID) # original data
+  length(bootDat.m$colt_ID) # bootstrap sample
+  dailyS.m <- glm(Fail ~ ns(age, df=3),family = binomial(link=cloglog), data=bootDat.m)
+  dailySP.m <- 1 - predict(dailyS.m, type = "resp",data.frame(age = seq(round(7*2.7), 365, 1)))
+  cum.boot.m <- dailySP.m
+  predictions.m[,iii]<-cum.boot.m
+}  
+
+m.CIs<-apply(as.matrix(predictions.m), 1, function(x){quantile(x,probs=c(0.025,0.975))})
+lines(m.CIs[1,], lty=3)
+lines(m.CIs[2,], lty=3)
+
+
+############2-panel fig.  All models and CIs must be run beforehand
+par(mfrow=c(1,2))
+par(pin=c(3.75,3))
+par(xaxs="i", yaxs="i") 
+
+
+#par(mar=c(5,6,4,1)+0.1)
+plot(St.m.age, frame.plot=F,type="l",lwd=2,ylim=c(0,1),xlab="Age (days)",
+     ylab=expression(hat(italic(S)))) #italics S-hat
+abline(h=0)
+axis(1,at=1,labels=c("0"))
+lines(CIs[1,], lty=5,lwd=2)
+lines(CIs[2,], lty=5,lwd=2)
+lines(kmfit, col="red", lwd=1.5, xlim = c(0, 280), xlab="Age (days)", ylab="Survival")
+legend("topright", legend=c("A"),bty="n")
+plot(1-(pred.m.age),type="l", 
+     frame.plot=F,lwd=2,ylab="Daily mortality hazard", xlab="Age (days)")
+abline(h=0.0003)
+abline(v=1)
+axis(1,at=1,labels=c("0"))
+axis(2,at=0.000306,labels=c("0.000"))
+lines(m.CIs[1,], lty=5, lwd=2)
+lines(m.CIs[2,], lty=5,lwd=2)
+legend("topright", legend=c("B"),bty="n")
+
 #MuHAZ
 library("muhaz")
 kpfit1<-kphaz.fit(time=colt.dat$age_at_fate_days,status=colt.dat$censor, method="product-limit")
 kpfit.sm1<-muhaz(time=colt.dat$age_at_fate_days, delta=colt.dat$censor, bw.method = "g")
 # Use "kphaz.fit" to generate a hazard estimate
-#data(pooled20132014, package="survival")
-#attach(ovarian)
-#kpfit <- kphaz.fit(futime, fustat)
-# Use "kphaz.plot" to plot the estimate
 mar.default<-c(5,1,4,2) + 0.1
 par(ps = 20, cex = 1, cex.main = 1,mar = mar.default + c(0, 4, 0, 0))
 kphaz.plot(kpfit1)
@@ -86,8 +121,7 @@ plot(kpfit.sm1)
 head(kpfit1)
 head(kpfit.sm1)
 summary(kpfit.sm1)
-#hazard plots for KM survival.  Hazards seem low...and the smooth curve depends on the bandwidth being local or global.  Global captures the early safety of the calving site,
-#but has an odd bump in hazard at ~100 days.
+#hazard plots for KM survival
 fit1<-muhaz(colt.dat$age_at_fate_days,colt.dat$censor,bw.method="knn")
 plot(fit1,col="black",lty=1, lwd=2)
 h.df<-data.frame(est=fit1$est.grid, h.orig=fit1$haz.est)
@@ -105,3 +139,5 @@ plot(h.df$est, h.df$h.orig, type="l", xlim=c(19,200),ylim=c(0,0.015), lwd=3,
      xlab= "Age (days)", ylab = "Hazard")
 lines(h.df$est, h.df$upper.ci,  lty=3, lwd=3)
 lines(h.df$est, h.df$lower.ci,  lty=3, lwd=3)
+
+
