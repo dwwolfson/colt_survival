@@ -16,7 +16,7 @@ library(boot)
 library(dplyr)
 
 #' Read in data
-colt.dat<-read.csv("raw_data/fates_table.csv")
+colt.dat<-read.csv("data_product/fates_table_corr.csv")
 
 #' Check fates to make sure that data are entered correctly.
 #' Note: there were 4 individuals that died or were censored on the same day 

@@ -29,9 +29,6 @@ AIC(m1.age,m2.age,m3.age,m4.age,m5.age)
 
 pred.m.age<-1 - predict(m1.age, type = "resp",data.frame(age = seq(round(7*2.7), 365, 1))) # start predicting at 2.7 weeks (or, min left truncation time)
 St.m.age <- c(1, cumprod(pred.m.age))
-#m.age <- glm(Fail ~ ns(age),family = binomial(link=cloglog), data=dayobs)
-#pred.m.age<-1 - predict(m.age, type = "resp",data.frame(age = seq(0, 365, 1)))
-#St.m.age <- c(1, cumprod(pred.m.age))
 
 par(mar=c(5,6,4,1)+0.1)
 plot(St.m.age, type="l",lwd=2,ylim=c(0,1),xlab="Age (days)",
@@ -57,22 +54,19 @@ lines(CIs[2,], lty=3)
 colt <- survfit(Surv(cond.age, censor) ~ 1, data=colt.dat)
 lines(colt, col="red", xlim = c(0, 280))
 
-##NOT WORKING##########
+##NOT WORKING##CIs look odd...
 ################BOOTSTRAP 95% CIs for conditional daily mort################################################
 set.seed(5)
 nsims = 10000
 dayobs$Fail<-factor(dayobs$lex.Xst)
-predictions.m <- matrix(NA, nrow = 348, ncol = nsims) #matrix for estimates
+predictions.m <- matrix(NA, nrow = 347, ncol = nsims) #matrix for estimates
 uid.m <- unique(dayobs$colt_ID)
 nID.m <- length(uid.m)
 for(iii in 1:nsims){
   bootIDs.m <- data.frame(colt_ID = sample(x = uid.m, size = nID.m, replace = TRUE))
   bootDat.m <- merge(bootIDs.m, dayobs)
-  table(bootDat.m$colt_ID)
-  length(dayobs$colt_ID) # original data
-  length(bootDat.m$colt_ID) # bootstrap sample
   dailyS.m <- glm(Fail ~ ns(age, df=3),family = binomial(link=cloglog), data=bootDat.m)
-  dailySP.m <- 1 - predict(dailyS.m, type = "resp",data.frame(age = seq(round(7*2.7), 365, 1)))
+  dailySP.m <- predict(dailyS.m, type = "resp",data.frame(age = seq(round(7*2.7), 365, 1)))
   cum.boot.m <- dailySP.m
   predictions.m[,iii]<-cum.boot.m
 }  
@@ -87,15 +81,13 @@ par(mfrow=c(1,2))
 par(pin=c(3.75,3))
 par(xaxs="i", yaxs="i") 
 
-
-#par(mar=c(5,6,4,1)+0.1)
 plot(St.m.age, frame.plot=F,type="l",lwd=2,ylim=c(0,1),xlab="Age (days)",
      ylab=expression(hat(italic(S)))) #italics S-hat
 abline(h=0)
 axis(1,at=1,labels=c("0"))
 lines(CIs[1,], lty=5,lwd=2)
 lines(CIs[2,], lty=5,lwd=2)
-lines(kmfit, col="red", lwd=1.5, xlim = c(0, 280), xlab="Age (days)", ylab="Survival")
+lines(colt, col="red", lwd=1.5, xlim = c(0, 280), xlab="Age (days)", ylab="Survival")
 legend("topright", legend=c("A"),bty="n")
 plot(1-(pred.m.age),type="l", 
      frame.plot=F,lwd=2,ylab="Daily mortality hazard", xlab="Age (days)")
